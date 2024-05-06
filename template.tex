@@ -1,0 +1,39 @@
+\documentclass[10pt, a4paper, ngerman]{article}
+
+\usepackage[margin=0mm]{geometry}
+\usepackage{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{circuitikz}
+\usepackage{amsmath}
+
+\providecommand{\sansFont}{1}
+\providecommand{\tikzScale}{1}
+
+\if\sansFont1
+\usepackage{arev}
+% \usepackage{noto-mono}
+\renewcommand*\familydefault{\ttdefault}
+\fi
+
+\usetikzlibrary{shapes.geometric, arrows, backgrounds, snakes, positioning}
+
+\tikzstyle{circStyle}=[
+    scale=\tikzScale,
+    line width=\tikzScale,
+    transform shape,
+]
+
+\begin{document}
+
+\pagestyle{empty}
+\clearpage
+\noindent
+\begin{tikzpicture}[circStyle]
+%% CODE GOES HERE %%
+\end{tikzpicture}
+
+\end{document}

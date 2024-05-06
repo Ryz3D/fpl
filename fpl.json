@@ -1,0 +1,44 @@
+{
+  "fpl": {
+    "bfWinkel": 45,
+    "bfKurz": false,
+    "platzOben": 2.5,
+    "platzRechts": 4,
+    "zeitenWo": {
+      "LG": "l",
+      "WL": "l",
+      "HR": "l",
+      "HH": "r"
+    }
+  },
+  "allgemein": {
+    "bf": [
+      { "kurz": "LG", "name": "Lüneburg" },
+      { "kurz": "WL", "name": "Winsen (Luhe)" },
+      { "kurz": "HR", "name": "Hamburg-Harburg" },
+      { "kurz": "HH", "name": "Hamburg Hbf" }
+    ],
+    "linien": [
+      {
+        "optionen": {
+          "name": "RE3",
+          "farbe": "red",
+          "zeiten": [
+            ["LG", 0, 0],
+            ["WL", 7, 8],
+            ["HR", 22, 23],
+            ["HH", 33, 34]
+          ]
+        },
+        "fahrten": [
+          ["8:12", { "zeiten": [["WL", 7, 12]] }],
+          "10:24",
+          ["10:28", { "farbe": "orange" }],
+          "11:24",
+          ["12:24"],
+          "13:24"
+        ]
+      }
+    ]
+  }
+}
