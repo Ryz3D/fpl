@@ -1,14 +1,29 @@
 {
   "fpl": {
-    "bfWinkel": 45,
     "bfKurz": false,
     "platzOben": 2.5,
     "platzRechts": 4,
-    "zeitenWo": {
-      "LG": "l",
-      "WL": "l",
-      "HR": "l",
-      "HH": "r"
+    "platzLinks": 2,
+    "zeitenText": {
+      "LG": [false, { "below left": true }],
+      "WL": [{ "above right": true }, { "below left": true }],
+      "HR": [{ "above right": true }, { "below left": true }],
+      "HH": [{ "above right": true }, false]
+    },
+    "textOptionen": {
+      "bf": {
+        "right": true,
+        "rotate": 45
+      },
+      "zugStart": {},
+      "zugFahrt": {},
+      "zugEnde": false,
+      "zugAn": {},
+      "zugAb": {}
+    },
+    "stilOptionen": {
+      "kopfzeile": {},
+      "zug": {}
     }
   },
   "allgemein": {
@@ -31,6 +46,7 @@
           ]
         },
         "fahrten": [
+          "7:50",
           ["8:12", { "zeiten": [["WL", 7, 12]] }],
           "10:24",
           ["10:28", { "farbe": "orange" }],

@@ -1,172 +1,14 @@
-const { existsSync, mkdirSync } = require('fs');
-const { readFile, writeFile } = require('fs/promises');
-const { exec } = require('node:child_process');
-
-const templateFile = './template.tex';
-const tempDir = './temp/';
-const tempFile = 'temp';
-const latexArgs = ['-halt-on-error', '--extra-mem-bot=320000000', '--extra-mem-top=320000000'];
-
-const canvasWidth = 21 - 2, canvasHeight = 29.7 - 2.05;
-
-if (!existsSync(tempDir)) {
-    mkdirSync(tempDir);
-}
-
-function tikzToPdf(tikzCode, openPdf = false) {
-    return new Promise((resolve, reject) => {
-        readFile(templateFile)
-            .then((read_data) => {
-                write_data = read_data.toString().replace('%% CODE GOES HERE %%', tikzCode);
-                writeFile(tempDir + tempFile + '.tex', write_data)
-                    .then(() => {
-                        exec(['pdflatex', tempFile + '.tex', ...latexArgs].join(' '), {
-                            cwd: tempDir,
-                            timeout: 10000,
-                        }, (error, stdout, stderr) => {
-                            if (error) {
-                                console.error(stdout.toString().split('\n').slice(-20, -3).join('\n'));
-                                reject();
-                            }
-                            else {
-                                if (stderr) {
-                                    console.log(`pdflatex stderr: ${stderr}`);
-                                }
-                                readFile(tempDir + tempFile + '.pdf')
-                                    .then((pdf_data) => {
-                                        if (openPdf) {
-                                            exec(tempFile + '.pdf', { cwd: tempDir });
-                                        }
-                                        resolve(pdf_data);
-                                    })
-                                    .catch((error) => {
-                                        console.error(`fs read error (${tempDir + tempFile + '.pdf'}): ${error}`);
-                                        reject();
-                                    });
-                            }
-                        });
-                    })
-                    .catch((error) => {
-                        console.error(`fs write error (${tempDir + tempFile + '.tex'}): ${error}`);
-                        reject();
-                    });
-            })
-            .catch((error) => {
-                console.error(`fs read error (${templateFile}): ${error}`);
-                reject();
-            });
-    });
-}
-
-function getData(file) {
-    return new Promise((resolve, reject) => {
-        readFile(file)
-            .then((file_data) => {
-                resolve(JSON.parse(file_data));
-            })
-            .catch((error) => {
-                console.error(`fs read error data file (${file}): ${error}`);
-                reject();
-            });
-    });
-}
-
-function timeToMinutes(t) {
-    const tSplit = t.toString().split(':');
-    if (tSplit.length == 3) {
-        return (60 * +tSplit[0]) + +tSplit[1] + (+tSplit[2] / 60);
-    }
-    else if (tSplit.length == 2) {
-        return (60 * +tSplit[0]) + +tSplit[1];
-    }
-    else {
-        return +tSplit;
-    }
-}
-
-function getAllTrains(line) {
-    const trains = [];
-    for (var f of line.fahrten) {
-        var newTrain = { ...line.optionen };
-        var zeiten = [...line.optionen.zeiten];
-        var dep = 0;
-
-        if (typeof f === 'object') {
-            if (f.length > 1) {
-                newTrain = { ...newTrain, ...f[1] };
-                if (f[1].zeiten) {
-                    zeiten = [];
-                    var delay = 0;
-                    for (var timeIndex in line.optionen.zeiten) {
-                        const overrideIndex = f[1].zeiten.findIndex(p => line.optionen.zeiten[timeIndex][0] === p[0]);
-                        if (overrideIndex > -1) {
-                            zeiten.push(f[1].zeiten[overrideIndex]);
-                            delay = f[1].zeiten[overrideIndex][2] - line.optionen.zeiten[timeIndex][2];
-                        }
-                        else {
-                            zeiten.push([
-                                line.optionen.zeiten[timeIndex][0],
-                                line.optionen.zeiten[timeIndex][1] + delay,
-                                line.optionen.zeiten[timeIndex][2] + delay,
-                            ]);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (typeof f === 'number') {
-            dep = f;
-        }
-        else if (typeof f === 'string') {
-            dep = timeToMinutes(f);
-        }
-        else {
-            dep = timeToMinutes(f[0]);
-        }
-        zeiten = zeiten.map(e => [e[0], e[1] + dep, e[2] + dep]);
-
-        trains.push({ ...newTrain, zeiten });
-    }
-    return trains;
-}
-
-class Tikz {
-    static optStr(options) {
-        return Object.entries(options).map(o => o[1] === true ? o[0] : `${o[0]}=${o[1]}`);
-    }
-
-    static draw(s, options = {}) {
-        return `\\draw[${this.optStr(options)}]\n${s}\n;\n`;
-    }
-
-    static coord(x, y) {
-        if (typeof y === 'undefined')
-            return `(${x})\n`;
-        else
-            return `(${x},${y})\n`;
-    }
-
-    static line(text = undefined, options = {}) {
-        if (typeof text === 'undefined')
-            return '--';
-        else
-            return `to ${this.node(text, options)}`;
-    }
-
-    static node(text, options = {}) {
-        var s = 'node';
-        s += `[${this.optStr(options)}]`;
-        s += `{${text}}\n`;
-        return s;
-    }
-}
+const { Helper, Tikz } = require('./helper');
 
 /*
 TODO:
 - multipage? new tikzpicture -> Tikz.draw without return value
 - absolute positioning on page
 */
+
+function tToY(m) {
+    return -m / 50;
+}
 
 class Fpl {
     constructor(json) {
@@ -176,51 +18,103 @@ class Fpl {
 
     generateHeader() {
         var s = '';
+        var s1 = '';
         for (var i in this.json.allgemein.bf) {
             const bf = this.json.allgemein.bf[i];
+            // TODO: platzLinks
             const xRel = i / (this.json.allgemein.bf.length - 1);
-            this.bfX[bf.kurz] = xRel * (canvasWidth - this.json.fpl.platzRechts);
-            s += Tikz.coord(this.bfX[bf.kurz], -this.json.fpl.platzOben);
-            s += Tikz.node(this.json.fpl.bfKurz ? bf.kurz : bf.name, {
-                'below right': true,
-                rotate: this.json.fpl.bfWinkel,
-            });
+            this.bfX[bf.kurz] = xRel * (Helper.canvasWidth() - this.json.fpl.platzRechts);
+            s1 += Tikz.coord(this.bfX[bf.kurz], -this.json.fpl.platzOben);
+            s1 += Tikz.node(this.json.fpl.bfKurz ? bf.kurz : bf.name, this.json.fpl.textOptionen.bf || {});
+            s1 += Tikz.line();
+            s1 += Tikz.coord(this.bfX[bf.kurz], -Helper.canvasHeight());
         }
-        s += Tikz.coord(0, 0);
-        s += Tikz.line();
-        s += Tikz.coord(canvasWidth, -canvasHeight);
-        // TODO: custom time / station lines
-        return Tikz.draw(s, {
+        s1 += Tikz.coord(0, 0);
+        s1 += Tikz.line();
+        s1 += Tikz.coord(Helper.canvasWidth(), -Helper.canvasHeight());
+        s += Tikz.draw(s1, {
             gray: true,
+            ...this.json.fpl.stilOptionen.kopfzeile,
         });
+
+        s1 = '';
+        // TODO: custom time / station lines
+        // beschriftung?
+        for (var t = 420; t <= 840; t += 60) {
+            s1 += Tikz.coord(0 /* this.json.fpl.platzLinks */, tToY(t));
+            s1 += Tikz.line();
+            s1 += Tikz.coord(Helper.canvasWidth(), tToY(t));
+        }
+        s += Tikz.draw(s1, {
+            "gray!50!white": true,
+            ...this.json.fpl.stilOptionen.kopfzeile,
+        });
+        return s;
     }
 
     generateTrains() {
         var s = '';
-        for (var trains of this.json.allgemein.linien.map(l => getAllTrains(l))) {
+        for (var trains of this.json.allgemein.linien.map(l => Helper.getAllTrains(l))) {
             for (var t of trains) {
                 var st = '';
                 for (var timeIndex in t.zeiten) {
-                    if (timeIndex == 0) {
-                        st += Tikz.node(t.name, {
-                            left: true,
-                        });
-                    }
-                    else {
+                    const bf = t.zeiten[timeIndex][0];
+
+                    if (+timeIndex > 0) {
                         st += Tikz.line(t.name, {
                             sloped: true,
                             above: true,
+                            ...this.json.fpl.textOptionen.zugFahrt,
                         });
                     }
-                    const tToY = (m) => -m / 50;
-                    st += Tikz.coord(this.bfX[t.zeiten[timeIndex][0]], tToY(t.zeiten[timeIndex][1]));
+
+                    // An
+                    st += Tikz.coord(this.bfX[bf], tToY(t.zeiten[timeIndex][1]));
+
+                    if (+timeIndex === 0) {
+                        if (this.json.fpl.textOptionen.zugStart !== false) {
+                            st += Tikz.node(t.name, {
+                                left: true,
+                                ...this.json.fpl.textOptionen.zugStart,
+                            });
+                        }
+                    }
+
+                    if (this.json.fpl.textOptionen.zugAn !== false && this.json.fpl.zeitenText[bf][0] !== false) {
+                        st += Tikz.node(Helper.minutesToTime(t.zeiten[timeIndex][1]), {
+                            left: true,
+                            ...this.json.fpl.textOptionen.zugAn,
+                            ...this.json.fpl.zeitenText[bf][0],
+                        });
+                    }
+
                     st += Tikz.line();
-                    st += Tikz.coord(this.bfX[t.zeiten[timeIndex][0]], tToY(t.zeiten[timeIndex][2]));
+
+                    // Ab
+                    st += Tikz.coord(this.bfX[bf], tToY(t.zeiten[timeIndex][2]));
+
+                    if (this.json.fpl.textOptionen.zugAb !== false && this.json.fpl.zeitenText[bf][1] !== false) {
+                        st += Tikz.node(Helper.minutesToTime(t.zeiten[timeIndex][2]), {
+                            left: true,
+                            ...this.json.fpl.textOptionen.zugAb,
+                            ...this.json.fpl.zeitenText[bf][1],
+                        });
+                    }
+
+                }
+                if (this.json.fpl.textOptionen.zugEnde !== false) {
+                    st += Tikz.node(t.name, {
+                        right: true,
+                        ...this.json.fpl.textOptionen.zugEnde,
+                    });
                 }
                 const drawOptions = {};
                 if (t.farbe)
                     drawOptions[t.farbe] = true;
-                s += Tikz.draw(st, drawOptions);
+                s += Tikz.draw(st, {
+                    ...drawOptions,
+                    ...this.json.fpl.stilOptionen.zug,
+                });
             }
         }
         return s;
@@ -234,8 +128,8 @@ class Fpl {
     }
 }
 
-getData('./fpl.json')
+Helper.getData('./fpl.json')
     .then((data) => {
         const fpl = new Fpl(data);
-        tikzToPdf(fpl.generateFull(), true).catch(() => { });
+        Helper.tikzToPdf(fpl.generateFull(), { pdfName: 'fpl.pdf' }).catch(() => { });
     });
