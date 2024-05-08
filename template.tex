@@ -15,25 +15,30 @@
 
 \if\sansFont1
 \usepackage{arev}
-% \usepackage{noto-mono}
+\usepackage{noto-mono}
 \renewcommand*\familydefault{\ttdefault}
 \fi
 
 \usetikzlibrary{shapes.geometric, arrows, backgrounds, snakes, positioning}
 
-\tikzstyle{circStyle}=[
-    scale=\tikzScale,
-    line width=\tikzScale,
-    transform shape,
-]
-
-\begin{document}
-
+\newcommand{\tikzenv}[1]{
 \pagestyle{empty}
 \clearpage
 \noindent
-\begin{tikzpicture}[circStyle]
-%% CODE GOES HERE %%
+\begin{tikzpicture}[
+    scale=\tikzScale,
+    line width=\tikzScale,
+    transform shape,
+    remember picture,
+    overlay
+]
+#1
 \end{tikzpicture}
+\pagebreak
+}
+
+\begin{document}
+
+%% CODE GOES HERE %%
 
 \end{document}

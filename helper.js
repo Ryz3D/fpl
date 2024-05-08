@@ -42,7 +42,7 @@ class Helper {
                                 }
                                 else {
                                     if (stderr) {
-                                        console.log(`pdflatex stderr: ${stderr}`);
+                                        console.error(`pdflatex stderr: ${stderr}`);
                                     }
                                     readFile(tempDir + tempFile + '.pdf')
                                         .then((pdfData) => {
@@ -120,29 +120,46 @@ class Helper {
     }
 
     static getAllTrains(line) {
+        const timesMinutes = [...line.optionen.zeiten];
+        for (var i in timesMinutes) {
+            if (typeof timesMinutes[i][1] === 'string') {
+                timesMinutes[i][1] = this.timeToMinutes(timesMinutes[i][1]);
+            }
+            if (typeof timesMinutes[i][2] === 'string') {
+                timesMinutes[i][2] = this.timeToMinutes(timesMinutes[i][2]);
+            }
+        }
+
         const trains = [];
         for (var f of line.fahrten) {
             var newTrain = { ...line.optionen };
-            var zeiten = [...line.optionen.zeiten];
+            var times = [...timesMinutes];
             var dep = 0;
 
             if (typeof f === 'object') {
                 if (f.length > 1) {
-                    newTrain = { ...newTrain, ...f[1] };
+                    const stil = { ...newTrain.stil, ...f[1].stil };
+                    newTrain = { ...newTrain, ...f[1], stil };
                     if (f[1].zeiten) {
-                        zeiten = [];
+                        times = [];
                         var delay = 0;
-                        for (var timeIndex in line.optionen.zeiten) {
-                            const overrideIndex = f[1].zeiten.findIndex(p => line.optionen.zeiten[timeIndex][0] === p[0]);
+                        for (var timeIndex in timesMinutes) {
+                            const overrideIndex = f[1].zeiten.findIndex(p => timesMinutes[timeIndex][0] === p[0]);
                             if (overrideIndex > -1) {
-                                zeiten.push(f[1].zeiten[overrideIndex]);
-                                delay = f[1].zeiten[overrideIndex][2] - line.optionen.zeiten[timeIndex][2];
+                                if (typeof f[1].zeiten[overrideIndex][1] === 'string') {
+                                    f[1].zeiten[overrideIndex][1] = this.timeToMinutes(f[1].zeiten[overrideIndex][1]);
+                                }
+                                if (typeof f[1].zeiten[overrideIndex][2] === 'string') {
+                                    f[1].zeiten[overrideIndex][2] = this.timeToMinutes(f[1].zeiten[overrideIndex][2]);
+                                }
+                                times.push(f[1].zeiten[overrideIndex]);
+                                delay = f[1].zeiten[overrideIndex][2] - timesMinutes[timeIndex][2];
                             }
                             else {
-                                zeiten.push([
-                                    line.optionen.zeiten[timeIndex][0],
-                                    line.optionen.zeiten[timeIndex][1] + delay,
-                                    line.optionen.zeiten[timeIndex][2] + delay,
+                                times.push([
+                                    timesMinutes[timeIndex][0],
+                                    timesMinutes[timeIndex][1] + delay,
+                                    timesMinutes[timeIndex][2] + delay,
                                 ]);
                             }
                         }
@@ -159,9 +176,9 @@ class Helper {
             else {
                 dep = this.timeToMinutes(f[0]);
             }
-            zeiten = zeiten.map(e => [e[0], e[1] + dep, e[2] + dep]);
+            times = times.map(e => [e[0], e[1] - times[0][2] + dep, e[2] - times[0][2] + dep]);
 
-            trains.push({ ...newTrain, zeiten });
+            trains.push({ ...newTrain, zeiten: times });
         }
         return trains;
     }
@@ -170,6 +187,10 @@ class Helper {
 class Tikz {
     static optStr(options) {
         return Object.entries(options).map(o => o[1] === true ? o[0] : `${o[0]}=${o[1]}`);
+    }
+
+    static tikz(s) {
+        return `\\tikzenv{\n${s}}\n`;
     }
 
     static draw(s, options = {}) {

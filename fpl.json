@@ -1,9 +1,10 @@
 {
   "fpl": {
     "bfKurz": false,
-    "platzOben": 2.5,
-    "platzRechts": 4,
-    "platzLinks": 2,
+    "platzLinks": 2.5,
+    "platzRechts": 1,
+    "platzOben": 3,
+    "platzUnten": 0,
     "zeitenText": {
       "LG": [false, { "below left": true }],
       "WL": [{ "above right": true }, { "below left": true }],
@@ -15,6 +16,8 @@
         "right": true,
         "rotate": 45
       },
+      "zeitLinks": {},
+      "zeitRechts": {},
       "zugStart": {},
       "zugFahrt": {},
       "zugEnde": false,
@@ -22,8 +25,12 @@
       "zugAb": {}
     },
     "stilOptionen": {
-      "kopfzeile": {},
+      "bfLinien": {},
+      "zeitLinien": {},
       "zug": {}
+    },
+    "extraText": {
+      "oben links": "Fahrplan Demo"
     }
   },
   "allgemein": {
@@ -37,24 +44,60 @@
       {
         "optionen": {
           "name": "RE3",
-          "farbe": "red",
+          "stil": {
+            "blue": true
+          },
           "zeiten": [
             ["LG", 0, 0],
             ["WL", 7, 8],
             ["HR", 22, 23],
             ["HH", 33, 34]
+          ],
+          "gleise": [
+            ["LG", 2],
+            ["WL", 1],
+            ["HR", 4],
+            ["HH", 13]
           ]
         },
         "fahrten": [
-          "7:50",
-          ["8:12", { "zeiten": [["WL", 7, 12]] }],
-          "10:24",
-          ["10:28", { "farbe": "orange" }],
+          ["7:24", { "name": "ME51226" }],
+          "8:24",
+          ["8:50", { "stil": { "cyan": true } }],
+          "9:24",
+          ["10:24", { "stil": { "dashed": true } }],
           "11:24",
-          ["12:24"],
+          ["12:24", { "stil": { "red": true }, "zeiten": [["WL", 7, 18]] }],
           "13:24"
         ]
+      },
+      {
+        "optionen": {
+          "name": "RE$^3$",
+          "stil": {
+            "red": true
+          },
+          "zeiten": [
+            ["LG", "7:24", "7:24"],
+            ["WL", "7:31", "7:32"],
+            ["HR", "7:46", "7:47"],
+            ["HH", "7:57", "7:57"]
+          ],
+          "gleise": [
+            ["LG", 2],
+            ["WL", 1],
+            ["HR", 4],
+            ["HH", 13]
+          ]
+        },
+        "fahrten": [["14:24", { "zeiten": [["WL", "7:31", "7:42"]] }]]
       }
-    ]
+    ],
+    "extraText": {
+      "optionen": {
+        "gray": true
+      },
+      "unten rechts": "Seite SEITENZAHL von SEITENANZAHL"
+    }
   }
 }
