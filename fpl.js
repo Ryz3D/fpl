@@ -1,8 +1,14 @@
 const { Helper, Tikz } = require('./helper');
 
-function tToY(m, pageStart, pageEnd) {
+Helper.version = '1.0';
+
+function tToY(m, pageStart, pageEnd, json) {
     // -platzOben bis -27
-    return (m - pageStart) / (pageEnd - pageStart) * -24 - 3;
+    const y = (m - pageStart) / (pageEnd - pageStart) * -24 - 3;
+    if (y < -27 || y > -json.fpl.platzOben)
+        return -1;
+    else
+        return y;
 }
 
 function extraText(options, data) {
@@ -39,7 +45,7 @@ class Fpl {
     }
 
     tToY(m, page) {
-        return tToY(m, this.pageStart(page), this.pageEnd(page));
+        return tToY(m, this.pageStart(page), this.pageEnd(page), this.json);
     }
 
     generateHeader(page) {
@@ -76,20 +82,23 @@ class Fpl {
         s1 = '';
         // TODO: customize time (major/minor) / station lines
         for (var t = 420; t <= 900; t += 60) {
-            s1 += Tikz.coord(this.json.fpl.platzLinks, tToY(t, page));
-            if (this.json.fpl.textOptionen.zeitLinks !== false) {
-                s1 += Tikz.node(Helper.minutesToTime(t), {
-                    left: true,
-                    ...this.json.fpl.textOptionen.zeitLinks,
-                });
-            }
-            s1 += Tikz.line();
-            s1 += Tikz.coord(Helper.canvasWidth() - this.json.fpl.platzRechts, tToY(t, page));
-            if (this.json.fpl.textOptionen.zeitRechts !== false) {
-                s1 += Tikz.node(Helper.minutesToTime(t), {
-                    right: true,
-                    ...this.json.fpl.textOptionen.zeitRechts,
-                });
+            const tY = this.tToY(t, page);
+            if (tY !== -1) {
+                s1 += Tikz.coord(this.json.fpl.platzLinks, tY);
+                if (this.json.fpl.textOptionen.zeitLinks !== false) {
+                    s1 += Tikz.node(Helper.minutesToTime(t), {
+                        left: true,
+                        ...this.json.fpl.textOptionen.zeitLinks,
+                    });
+                }
+                s1 += Tikz.line();
+                s1 += Tikz.coord(Helper.canvasWidth() - this.json.fpl.platzRechts, tY);
+                if (this.json.fpl.textOptionen.zeitRechts !== false) {
+                    s1 += Tikz.node(Helper.minutesToTime(t), {
+                        right: true,
+                        ...this.json.fpl.textOptionen.zeitRechts,
+                    });
+                }
             }
         }
         s += Tikz.draw(s1, {
@@ -103,54 +112,57 @@ class Fpl {
         var s = '';
         for (var trains of this.json.allgemein.linien.map(l => Helper.getAllTrains(l))) {
             for (var t of trains) {
-                if (t.zeiten[0][1] < this.pageStart(page) || t.zeiten[0][1] > this.pageEnd(page))
+                if (this.tToY(t.zeiten[0][1], page) === -1)
                     continue;
 
                 var st = '';
                 for (var timeIndex in t.zeiten) {
                     const bf = t.zeiten[timeIndex][0];
 
-                    if (+timeIndex > 0) {
-                        st += Tikz.line(t.name, {
-                            sloped: true,
-                            above: true,
-                            ...this.json.fpl.textOptionen.zugFahrt,
-                        });
-                    }
-
                     // An
-                    st += Tikz.coord(this.bfX[bf], tToY(t.zeiten[timeIndex][1], page));
-
-                    if (+timeIndex === 0) {
-                        if (this.json.fpl.textOptionen.zugStart !== false) {
-                            st += Tikz.node(t.name, {
-                                left: true,
-                                ...this.json.fpl.textOptionen.zugStart,
+                    if (this.tToY(t.zeiten[timeIndex][1], page) !== -1) {
+                        if (+timeIndex > 0) {
+                            st += Tikz.line(t.name, {
+                                sloped: true,
+                                above: true,
+                                ...this.json.fpl.textOptionen.zugFahrt,
                             });
                         }
+
+                        st += Tikz.coord(this.bfX[bf], this.tToY(t.zeiten[timeIndex][1], page));
+
+                        if (+timeIndex === 0) {
+                            if (this.json.fpl.textOptionen.zugStart !== false) {
+                                st += Tikz.node(t.name, {
+                                    left: true,
+                                    ...this.json.fpl.textOptionen.zugStart,
+                                });
+                            }
+                        }
+
+                        if (this.json.fpl.textOptionen.zugAn !== false && this.json.fpl.zeitenText[bf][0] !== false) {
+                            st += Tikz.node(Helper.minutesToTime(t.zeiten[timeIndex][1]), {
+                                left: true,
+                                ...this.json.fpl.textOptionen.zugAn,
+                                ...this.json.fpl.zeitenText[bf][0],
+                            });
+                        }
+
+                        st += Tikz.line();
+
+                        // Ab
+                        if (this.tToY(t.zeiten[timeIndex][2], page) !== -1) {
+                            st += Tikz.coord(this.bfX[bf], this.tToY(t.zeiten[timeIndex][2], page));
+
+                            if (this.json.fpl.textOptionen.zugAb !== false && this.json.fpl.zeitenText[bf][1] !== false) {
+                                st += Tikz.node(Helper.minutesToTime(t.zeiten[timeIndex][2]), {
+                                    left: true,
+                                    ...this.json.fpl.textOptionen.zugAb,
+                                    ...this.json.fpl.zeitenText[bf][1],
+                                });
+                            }
+                        }
                     }
-
-                    if (this.json.fpl.textOptionen.zugAn !== false && this.json.fpl.zeitenText[bf][0] !== false) {
-                        st += Tikz.node(Helper.minutesToTime(t.zeiten[timeIndex][1]), {
-                            left: true,
-                            ...this.json.fpl.textOptionen.zugAn,
-                            ...this.json.fpl.zeitenText[bf][0],
-                        });
-                    }
-
-                    st += Tikz.line();
-
-                    // Ab
-                    st += Tikz.coord(this.bfX[bf], tToY(t.zeiten[timeIndex][2], page));
-
-                    if (this.json.fpl.textOptionen.zugAb !== false && this.json.fpl.zeitenText[bf][1] !== false) {
-                        st += Tikz.node(Helper.minutesToTime(t.zeiten[timeIndex][2]), {
-                            left: true,
-                            ...this.json.fpl.textOptionen.zugAb,
-                            ...this.json.fpl.zeitenText[bf][1],
-                        });
-                    }
-
                 }
                 if (this.json.fpl.textOptionen.zugEnde !== false) {
                     st += Tikz.node(t.name, {
@@ -187,8 +199,11 @@ class Fpl {
     }
 }
 
+const verbosity = Helper.getVerbosity(process.argv);
+
 Helper.getData('./fpl.json')
-    .then((data) => {
-        const fpl = new Fpl(data);
+    .then((json) => {
+        Helper.verboseInfo(verbosity, json);
+        const fpl = new Fpl(json);
         Helper.tikzToPdf(fpl.generateFull(), { pdfName: 'fpl.pdf' }).catch(() => { });
     });

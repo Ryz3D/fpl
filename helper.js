@@ -11,12 +11,31 @@ if (!existsSync(tempDir)) {
 }
 
 class Helper {
+    static version = '1.0';
+
     static canvasWidth() {
         return 21 - 2;
     }
 
     static canvasHeight() {
         return 29.7 - 2.05;
+    }
+
+    static latexVersion() {
+        return new Promise((resolve, reject) => {
+            exec('pdflatex -version', {
+                cwd: tempDir,
+                timeout: 10000,
+            }, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(stdout.toString().split('\n').slice(-20, -3).join('\n'));
+                    reject();
+                }
+                else {
+                    resolve(stdout);
+                }
+            });
+        });
     }
 
     static tikzToPdf(tikzCode, options = { pdfName: '', openPdf: true, templateFile: './template.tex' }) {
@@ -134,6 +153,7 @@ class Helper {
         for (var f of line.fahrten) {
             var newTrain = { ...line.optionen };
             var times = [...timesMinutes];
+            var tracks = [...(line.optionen.gleis || [])];
             var dep = 0;
 
             if (typeof f === 'object') {
@@ -164,6 +184,14 @@ class Helper {
                             }
                         }
                     }
+                    if (f[1].gleis) {
+                        for (var trackIndex in tracks) {
+                            const overrideIndex = f[1].gleis.findIndex(p => tracks[trackIndex][0] === p[0]);
+                            if (overrideIndex > -1) {
+                                tracks[trackIndex] = f[1].gleis[overrideIndex][1];
+                            }
+                        }
+                    }
                 }
             }
 
@@ -178,9 +206,25 @@ class Helper {
             }
             times = times.map(e => [e[0], e[1] - times[0][2] + dep, e[2] - times[0][2] + dep]);
 
-            trains.push({ ...newTrain, zeiten: times });
+            trains.push({ ...newTrain, zeiten: times, gleis: tracks });
         }
         return trains;
+    }
+
+    static getVerbosity(argv) {
+        return argv.map(s => s[0] === '-' && s.slice(1).match('[^v]') === null ? s.length - 1 : 0).reduce((a, b) => Math.max(a, b));
+    }
+
+    static verboseInfo(verbosity, json) {
+        if (verbosity >= 1) {
+            console.log(`fpl ${this.version} (node ${process.version})`);
+            console.log(`canvas: ${Helper.canvasWidth()} x ${Helper.canvasHeight()}`);
+        }
+        if (verbosity >= 2) {
+            console.log('trains:', json.allgemein.linien.map(l => Helper.getAllTrains(l)));
+            Helper.latexVersion()
+                .then(v => console.log(`latex: ${v}`));
+        }
     }
 }
 
